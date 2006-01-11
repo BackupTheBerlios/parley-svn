@@ -1,0 +1,19 @@
+<h1>[% current_forum.name %] : List Of Active Threads</h1>
+
+<p>
+<a href="thread/add?forum=[% current_forum.id %]">[Start A New Topic]</a>
+</p>
+
+[% IF thread_list.count > 0 %]
+<table>
+  [% WHILE (thread = thread_list.next) %]
+  <tr>
+    <td>
+    <a href="thread/view?thread=[% thread.id %]">[% thread.subject %]</a>
+    </td>
+  </tr>
+  [% END %]
+</table>
+[% ELSE %]
+  No active threads in this forum
+[% END %]

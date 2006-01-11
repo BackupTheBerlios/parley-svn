@@ -1,0 +1,21 @@
+<h1>Forum List</h1>
+
+<table>
+<tr>
+ <td>Forum</td>
+ <td>Last Post</td>
+</tr>
+[% WHILE (forum = forum_list.next) %]
+<tr>
+ <td>
+  <a href="forum/view?forum=[% forum.id %]" class="forum_link">[% forum.name %]</a>
+  <br />
+  <span class="forum_description">[% forum.description %]</span>
+ </td>
+ <td>
+  [% nicedate(forum.last_post.created) %]
+  <br />
+  posted by [% forum.last_post.creator.forum_name %]
+ </td>
+</tr>
+[% END %]

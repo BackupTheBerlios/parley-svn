@@ -1,0 +1,13 @@
+<h1>Forum List</h1>
+
+<table>
+[% WHILE (forum = forum_list.next) %]
+<tr>
+<td>
+<a href="forum/view?forum=[% forum.id %]">[% forum.name %]</a>
+</td>
+<td>
+[% forum.description %]
+</td>
+</tr>
+[% END %]
