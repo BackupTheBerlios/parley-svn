@@ -1,0 +1,102 @@
+
+<table>
+    <tr>
+        <td>
+            <b>Topic: [% current_thread.subject %]</b>
+        </td>
+
+        <td class="right_align">
+            <small>
+            [% INCLUDE shared/pager_advanced %]
+            </small>
+        </td>
+    </tr>
+</table>
+
+[% SET dummy_value = post_list.reset %]
+[% IF post_list.count > 0 %]
+    [% IF current_thread.locked %]
+    [% rowspan = 2 %]
+    [% ELSE %]
+    [% rowspan = 3 %]
+    [% END %]
+    <table>
+    [% WHILE (post = post_list.next) %]
+        <tr>
+            <td rowspan="[% rowspan %]">
+            <span class="post_creator">
+            [% post.creator.forum_name %]
+            </span>
+            <br />
+            [% post.creator.post_count %]
+            post[% IF (post.creator.post_count != 1) %]s[% END %]
+            </td>
+            <td class="post_created">
+            Posted at <i>[% nicedate(post.created) %]</i>
+            (#[% post.id %])
+            </td>
+        </tr>
+        <tr>
+            <td>
+                [% IF post.quoted_post %]
+                    <span class="post_message">
+                        <span class="in_response_to">
+                        [% nicedate(post.quoted_post.created) %],
+                        [% post.quoted_post.creator.forum_name %] said:
+                        </span>
+                        <br />
+                        <span class="quoted_message">
+                        [% FILTER html_line_break %][% HTML.escape(post.quoted_post.message) %][% END %]
+                        </span>
+                    [% FILTER html_line_break %][% HTML.escape(post.message) %][% END %]
+                    </span>
+                [% ELSE %]
+                    <span class="post_message">
+                    [% FILTER html_line_break %][% HTML.escape(post.message) %][% END %]
+                    </span>
+                [% END %]
+                [% IF post.edited %]
+                <span class="post_edited_alert">Edited: [% nicedate(post.edited) %]</span>
+                [% END %]
+            </td>
+        </tr>
+        [% UNLESS current_thread.locked %]
+        <tr>
+        <td style="text-align: right;">
+            [% IF c.session.authed_user.id == post.creator.id %]
+            <form action="post/edit?post=[% post.id %]" method="POST" name="post_actions" class="inline_form">
+                <input type="submit" value="Edit" name="edit_post" class="small_input_button" />
+            </form>
+            [% END %]
+            <form action="thread/reply?post=[% post.id %]" method="POST" name="post_actions" class="inline_form">
+                <input type="submit" value="Quote" name="quote_post" class="small_input_button" />
+                <input type="submit" value="Reply" name="reply_to_post" class="small_input_button" />
+            </form>
+        </td>
+        </tr>
+        [% END %]
+    [% END %]
+    [% UNLESS current_thread.locked %]
+    <form action="thread/reply?thread=[% current_thread.id %]" method="POST" name="new_thread">
+        <tr>
+        <td colspan="2" style="text-align: center;">
+            <input type="submit" value="New Reply" name="reply_to_thread"    class="input_button" />
+        </td>
+        </tr>
+    </form>
+    [% END %]
+    </table>
+<table>
+    <tr>
+        <td class="right_align">
+            <small>
+            [% INCLUDE shared/pager_advanced %]
+            </small>
+        </td>
+    </tr>
+</table>
+
+
+[% ELSE %]
+  No active posts in this thread
+[% END %]
