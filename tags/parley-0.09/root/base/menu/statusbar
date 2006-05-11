@@ -1,0 +1,57 @@
+<!-- status bar : start -->
+<table width="100%">
+        <tr>
+                <td width="60%" class="left">
+                    <a href="forum/list">Home</a>
+                    [% IF current_forum %]
+                      &raquo;
+                      <a href="forum/view?forum=[% current_forum.id %]">[% current_forum.name %]</a>
+                      [% IF current_thread %]
+                        &raquo;
+                        <a href="thread/view?thread=[% current_thread.id %]">[% ForumCode.escape(current_thread.subject) %]</a>
+                      [% END %]
+                    [% END %]
+                </td>
+
+                <td width="40%" class="right">
+                        [% IF (authed_user = c.authed_user) %]
+                        Logged in as <b>[% authed_user.first_name %] [% authed_user.last_name %]</b>
+                        [% UNLESS authed_user.authentication.authenticated %]
+                        (<b><i>Not Authenticated</i></b>)
+                        [% END %]
+                        <i>[
+                                <a href="user/logout">Logout</a>
+                        ]</i>
+                        [% ELSE %]
+            <i>[
+            <a onclick="new Effect.Appear('loginbox', { duration:0.2 }); $('username').focus(); return false;" href="user/login">Login</a>
+            |
+            <a href="user/signup">Signup</a>
+            ]</i>
+                        [% END %] [%# authed_user end %]
+                </td>
+
+                <td>
+                </td>
+        </tr>
+</table>
+
+<!-- we have to put the div outside the table, otherwise we get trapped inside it! -->
+<div id="loginbox" style="display: none">
+    <form action="user/login" method="post" name="login_form" class="loginbox">
+        <fieldset>
+            <label for="username"><b>Username:</b></label>
+            <input type="text" id="username" name="username" style="width: 15em;" class="input_text" />
+            <br />
+            <label for="password"><b>Password:</b></label>
+            <input type="password" id="password" name="password" style="width: 15em;" class="input_text" />
+            <br />
+            <button type="submit" value="log in" class="input_button" style="margin-left: 170px;"/>log in</button>
+
+            <p>
+            <a href="user/password/forgotten">Forgotten Password</a>
+            </p>
+        </fieldset>
+    </form>
+</div>
+<!-- status bar : end -->
