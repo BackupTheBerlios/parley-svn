@@ -1,0 +1,68 @@
+<!-- status bar : start -->
+
+<script type="text/javascript">
+	function showLoginBox(start){
+        var popUp = dojo.lfx.explode(start, 'loginbox', 250, function(n) {
+            /* there's a timing issue here I think as the focus() only works if we have an alert() before it */
+            var something = dojo.byId('username');
+            something.focus();
+        });
+        popUp.play();
+	}
+</script>
+
+<!-- dojo dialog-setup -->
+<script type="text/javascript">
+    var login_dialog;
+    function init(e) {
+        login_dialog = dojo.widget.byId("login_dialog");
+        var timer = document.getElementById("login_dialog_timer");
+        login_dialog.setTimerNode(timer);
+        var btn = document.getElementById("login_dialog_hider");
+        login_dialog.setCloseControl(btn);
+    }
+    dojo.addOnLoad(init);
+</script>
+
+<table width="100%">
+        <tr>
+                <td width="60%" class="left">
+                    <a href="forum/list">Home</a>
+                    [% IF current_forum %]
+                      &raquo;
+                      <a href="forum/view?forum=[% current_forum.id %]">[% current_forum.name %]</a>
+                      [% IF current_thread %]
+                        &raquo;
+                        <a href="thread/view?thread=[% current_thread.id %]">[% ForumCode.escape(current_thread.subject) %]</a>
+                      [% END %]
+                    [% END %]
+                </td>
+
+                <td width="40%" class="right">
+                        [% IF (authed_user) %]
+                        Logged in as <b>[% authed_user.first_name %] [% authed_user.last_name %]</b>
+                        [% UNLESS authed_user.authentication.authenticated %]
+                        (<b><i>Not Authenticated</i></b>)
+                        [% END %]
+                        <i>[
+                                <a href="user/logout">Logout</a>
+                        ]</i>
+                        [% ELSE %]
+            <i>[
+            <a href="javascript:;" onclick="login_dialog.show(); return false;">Login</a>
+            |
+            <a href="user/signup">Signup</a>
+            ]</i>
+                        [% END %] [%# authed_user end %]
+
+
+                </td>
+
+                <td>
+                </td>
+        </tr>
+</table>
+
+[% INCLUDE shared/login_dialog %]
+
+<!-- status bar : end -->
