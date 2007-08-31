@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+[% PROCESS shared/useful_tt_stuff %]
+
+<!-- Header : Start -->
+<html>
+    <head>
+        <base href="[% c.req.base %]" />
+        <title>
+            [% c.config.name %]
+
+            [%# Show version if we're debugging %]
+            [% IF c.debug %]
+            ([% c.config.version %])
+            [% END %]
+
+            [%# Show custom page title if we have one %]
+            [% IF page_title %]
+             : [% page_title %]
+            [%# Show thread name if we have one %]
+            [% ELSIF current_thread %]
+             : [% current_thread.subject %]
+            [%# Show forum name if we have one %]
+            [% ELSIF current_forum %]
+             : [% current_forum.name %]
+            [% END %]
+        </title>
+        <meta name="author" content="Chisel Wright" />
+        <link rel="shortcut icon" href="[% c.request.base %]/favicon.ico" type="image/x-icon" />
+        <link type="text/css" rel="stylesheet" title="Default" href="[% c.request.base %]/css/common.css" />
+        <link type="text/css" rel="stylesheet" title="Default" href="[% c.request.base %]/css/layout27.css" />
+
+        <!-- Dojo Magic -->
+        <script type="text/javascript">
+            var djConfig = { isDebug: true };
+        </script>
+        <script type="text/javascript" src="[% c.request.base %]/static/magic/dojo.js"></script>
+        <script type="text/javascript">
+            dojo.require("dojo.widget.Menu2");
+            dojo.require("dojo.lfx.*");         // animations and eye candy
+            dojo.require("dojo.widget.Dialog");
+            dojo.require("dojo.widget.Button");
+
+            dojo.require("dojo.widget.TabContainer");
+            dojo.require("dojo.widget.LinkPane");
+            dojo.require("dojo.widget.ContentPane");
+            dojo.require("dojo.widget.LayoutContainer");
+
+
+            dojo.require("dojo.widget.InlineEditBox");
+            dojo.require("dojo.event.*");
+            dojo.hostenv.writeIncludes();
+        </script>
+    </head>
+
+    <body>
+        <div id="container">
+            <div id="header">
+                <h1>Parley</h1>
+            </div><!-- header div -->
+
+            <div id="userinfo_box">
+                Current User:
+                [% IF authed_user %]
+                <em>[% authed_user.forum_name %]</em>
+                [% ELSE %]
+                <em>Guest User</em>
+                [% END %]
+            </div>
+        [% PROCESS menu/menubar %]
+
+
+            <div id="wrapper">
+                <div id="content">
+
+                    [% IF view.error.messages %]
+                    <div class="error_messages">
+                        [% FOREACH msg IN view.error.messages %]
+                        [% msg %]<br />
+                        [% END %]
+                    </div>
+                    [% END %]
+<!-- Header : End -->

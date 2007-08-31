@@ -1,0 +1,54 @@
+<!-- Footer : Start -->
+                </div><!-- content div -->
+            </div><!-- wrapper div -->
+
+            <div id="navigation">
+            <p> &nbsp; </p>
+            <!--
+                <p>Navigation</p>
+                [%# PROCESS shared/navigation %]
+
+                <p>
+                <a href="javascript:;" onclick="search_dialog.show(); return false;">Search</a>
+                </p>
+
+                <p>
+                <a href="thread/recent">Recently Updated Threads</a>
+                </p>
+
+                [% IF authed_user %]
+                <p>
+                <a href="my/preferences">Preferences</a>
+                </p>
+                [% END %]
+                -->
+            </div><!-- navigation div -->
+
+            <div id="extra">
+            <p> &nbsp; </p>
+                [%# PROCESS shared/user_status %]
+            </div><!-- extra div -->
+
+            <div id="footer">
+                <p>&copy; Chisel Wright 2006-2007. All Rights Reserved.</p>
+            </div><!-- footer div -->
+
+
+            <span style="display: block; float: right; margin-right: 20px;">
+            <a href="http://catalystframework.org"><img
+                src="static/images/btn_88x31_powered.png"
+                width="88"
+                height="31"
+                alt="Powered By Catalyst"
+                style="border: none;"
+                /></a>
+            </span>
+
+            [% INCLUDE shared/login_dialog %]
+            [% INCLUDE shared/search_dialog %]
+        </div><!-- container div -->
+
+    </body>
+</html>
+<!-- Footer : End -->
+
