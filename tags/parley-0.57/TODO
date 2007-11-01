@@ -1,0 +1,36 @@
+TODO LIST
+
+  - write some sensible T&Cs
+  - update avatar update response to force a No-Cache?
+  - application logo
+  - advanced search page
+  - proper moderator support/management
+  - IP/user reporting
+  - see if we can work out why 'make catalyst_par' is failing
+? - fix CSS for <fieldset>s
+D - i18n email template files
+D - i18n help files
+D - setup/use ttcache
+D - add missing link to <img> tag to help/formatting_posts
+D - add missing link to BBCode to help/formatting_posts
+D - add license link to help/faq
+D - add T&C editor/updater
+D - add historic T&C view (for all users)
+D - Minimising clicks - After password reset
+D   "After the password reset has been accepted a page indicating that change
+D   was successful appears with link to login. How about triggering the usual
+D   enter password page saying the same thing so remove the need to click."
+D - add Message Preview to Create New Thread page (thread/add)
+D - show more forum/thread information
+D - see if it's possible to display the forum-name as the first
+D   entry for the popup menu
+D - show more info in the recently update threads page; number of views/posts
+D - sane T&C management
+D - extra forumcode markup: quote/pre/code
+D - message preview before posting
+D - proper/better validation error hadling for AJAX field updates
+D - user profile image uploads
+D - factor out error setting, handling and displaying
+D - install Proc::Daemon (etc) for email script
+D - factor out DFV "equality" functions
+D - factor out interval_ago() and _time_string()
