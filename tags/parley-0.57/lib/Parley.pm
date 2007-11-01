@@ -29,7 +29,7 @@ use Catalyst qw/
 
 use Parley::App::Communication::Email qw( :email );
 
-our $VERSION = '0.57_08';
+our $VERSION = '0.57';
 
 __PACKAGE__->config( version => $VERSION );
 __PACKAGE__->setup;
