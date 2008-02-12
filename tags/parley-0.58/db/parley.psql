@@ -1,0 +1,276 @@
+-- Phorum schema
+
+-- to get your user and database:
+--  createuser -A -d parley
+--  createdb -U parley -E UTF8 parley
+--  psql -U parley -d parley -f db/parley.psql
+
+\set QUIET 'on'
+
+-- wrap it all in a transaction
+BEGIN;
+
+-- we have authentication
+CREATE TABLE authentication (
+    id                      SERIAL          not null        primary key,
+    username                text            not null,
+    password                text            not null,
+    authenticated           boolean         NOT NULL        default False,
+
+    UNIQUE (username)
+);
+
+
+-- a table of acceptable TZ strings
+CREATE TABLE preference_time_string (
+    id                              SERIAL      primary key,
+    time_string                     text        not null,
+    sample                          text        not null,
+    comment                         text
+);
+-- some TZ strings
+INSERT INTO preference_time_string (time_string, sample) VALUES ('%A %d %B %Y at %R', 'Thursday 13 July 2006 at 18:15');
+INSERT INTO preference_time_string (time_string, sample) VALUES ('%F %T', '2006-07-13 18:15:00');
+INSERT INTO preference_time_string (time_string, sample, comment) VALUES ('%c','Thu 13 Jul 2006 18:15:00 BST','locale\'s date and time'); 
+INSERT INTO preference_time_string (time_string, sample) VALUES ('%A at %R', 'Thursday at 18:15');
+INSERT INTO preference_time_string (time_string, sample) VALUES ('%a, %d %b; %R', 'Thu, 13 Jul; 18:15');
+INSERT INTO preference_time_string (time_string, sample) VALUES ('%a, %d %b; %R', 'Thu, 13 Jul; 18:15');
+INSERT INTO preference_time_string (time_string, sample) VALUES ('%R, %b %d', '18:15, Jul 13');
+INSERT INTO preference_time_string (time_string, sample) VALUES ('%R, %b %d ''%y', '18:15, Jul 13 \'06');
+
+
+CREATE TABLE preference (
+    id             SERIAL      primary key,
+
+    timezone        text        not null
+            default 'UTC',
+    time_format_id  integer     references preference_time_string(id),
+    show_tz         boolean     default True,
+
+    notify_thread_watch     boolean     default False,
+    watch_on_post           boolean     default True
+);
+
+CREATE TABLE person (
+    id                  SERIAL      primary key,
+    
+    first_name          text        not null,
+    last_name           text        not null,
+    email               text        not null,
+    
+    forum_name          text        not null,
+
+    preference_id       integer
+                        references preference(id),
+
+    authentication_id   integer
+                        references authentication(id),
+
+    UNIQUE(forum_name),
+    UNIQUE(email)
+);
+
+CREATE TABLE registration_authentication (
+    id              text  primary key,
+    recipient_id    integer     not null
+                    references person(id),
+    expires         date
+);
+
+-- new table used during forgotten password process
+CREATE TABLE password_reset (
+    id                      text        primary key,
+    recipient_id            integer     not null
+                            references person(id),
+    expires                 timestamp
+);
+
+CREATE TABLE forum (
+    id              SERIAL      primary key,
+    name            text        not null,
+    description     text,
+
+    active          boolean     not null    default True,
+
+    post_count      integer     not null    default 0,
+
+    UNIQUE(name)
+);
+
+CREATE TABLE thread (
+    id              SERIAL      primary key,
+    forum_id        integer     not null
+                    references forum(id),
+
+    subject         text        not null,
+    
+    created         timestamp with time zone
+                    default CURRENT_TIMESTAMP,
+    creator_id      integer     not null
+                    references person(id),
+    post_count      integer     not null    default 0,
+    view_count      integer     not null    default 0,
+
+    active          boolean     not null    default True,
+
+    sticky          boolean     not null    default False,
+    locked          boolean     not null    default False
+);
+
+CREATE TABLE post (
+    id              SERIAL      primary key,
+    thread_id       integer     not null
+                    references thread(id),
+
+    subject         text,
+    message         text        not null,
+
+    created         timestamp with time zone
+                    default CURRENT_TIMESTAMP,
+    creator_id      integer     not null
+                    references person(id),
+
+    ip_addr         inet
+
+);
+
+-- add ReplyTo information for post
+ALTER TABLE post ADD COLUMN reply_to_id
+    integer references post(id)
+;
+-- deal with quoted replies
+ALTER TABLE post
+ADD COLUMN quoted_post_id
+integer REFERENCES post(id);
+
+ALTER TABLE post
+ADD COLUMN quoted_text text;
+
+-- add LastPost information
+ALTER TABLE thread ADD COLUMN last_post_id
+    integer references post(id)
+;
+ALTER TABLE forum ADD COLUMN last_post_id
+    integer references post(id)
+;
+
+-- person posting information
+ALTER TABLE person ADD COLUMN last_post_id
+    integer references post(id)
+;
+ALTER TABLE person ADD COLUMN post_count
+    integer NOT NULL default 0
+;
+
+-- post edited time (if any)
+ALTER TABLE post
+    ADD COLUMN
+        edited  timestamp with time zone
+;
+
+
+-- when a user last viewed a thread
+CREATE TABLE thread_view (
+    id                  SERIAL      not null        primary key,
+    person_id           integer     not null        references person(id),
+    thread_id           integer     not null        references thread(id),
+    timestamp           timestamp with time zone    not null
+                        default CURRENT_TIMESTAMP,
+
+    watched             boolean     not null        default False,
+    last_notified       timestamp with time zone
+                        default NULL,
+
+    unique(person, thread)
+);
+
+-- overall it's better to queue outgoing emails, and have a separate process
+-- deal with them
+CREATE TABLE email_queue (
+    id                  SERIAL      not null        primary key,
+    queued              timestamp with time zone    not null
+                        default CURRENT_TIMESTAMP,
+
+    recipient_id        integer     not null        references person(id),
+    cc_id               integer                     references person(id),
+    bcc_id              integer                     references person(id),
+
+    sender              text        not null,
+
+    subject             text        not null,
+    text_content        text        not null,
+    html_content        text,
+
+    -- delivery statuses
+    attempted_delivery  boolean     not null        default False
+);
+
+
+-- a table of person/forum to show who's a moderator
+CREATE TABLE forum_moderator (
+    person_id           integer     not null    references person(id),
+    forum_id            integer     not null    references forum(id),
+    can_moderate        boolean     not null    default true,
+
+    unique(person,forum)
+);
+
+
+-- a table to contain site terms & conditions
+CREATE TABLE terms (
+    id              serial      primary key,
+    created         timestamp with time zone
+                    default CURRENT_TIMESTAMP
+                    not null,
+
+    content         text        not null,
+
+    change_summary  text
+);
+-- keep track of who agreed to what, and when
+CREATE TABLE terms_agreed (
+    id              serial      primary key,
+
+    person_id       integer     not null
+                    references person(id),
+    terms_id        integer     not null
+                    references terms(id),
+
+    accepted_on     timestamp with time zone
+                    default CURRENT_TIMESTAMP
+                    not null,
+
+    UNIQUE(person_id, terms_id)
+);
+
+
+--
+-- some default stuff
+--
+
+-- #0 authentication
+INSERT INTO authentication
+(id, username, password, authenticated)
+VALUES
+(0, 'topdog', md5('k1tt3n'), true);
+
+-- #0 preference
+INSERT INTO preference
+(id, timezone)
+VALUES
+(0, 'UTC');
+
+-- #0 person info
+INSERT INTO person
+(id,first_name, last_name, email, forum_name, authentication, preference)
+VALUES
+(0, 'Top','Dog','topdog@herlpacker.co.uk','TopDog', 0, 0);
+
+INSERT INTO forum (id, name, description) VALUES (0, 'Off-Topic', 'General off-topic discussion');
+INSERT INTO forum (name, description) VALUES ('Suggestions', 'Things you think should be added');
+INSERT INTO forum (name, description) VALUES ('Bugs', 'If you find anything broken, report it here');
+
+-- commit our schema
+COMMIT;
+
+-- vim:ft=sql
