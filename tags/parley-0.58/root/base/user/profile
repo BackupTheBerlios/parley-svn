@@ -1,0 +1,48 @@
+<!-- user/profile -->
+<h1>[%l('User Profile')%]</h1>
+[% IF profiled_user %]
+    <div class="yui-gf top_padded">
+        <div class="yui-u first align_right">
+            [% INCLUDE shared/user_avatar person=profiled_user %]
+        </div>
+        <div class="yui-u">
+
+            <div class="yui-gf">
+                <div class="yui-u first align_right">
+                    [%l('Nickname')%]:
+                </div>
+                <div class="yui-u">
+                    [% profiled_user.forum_name %]
+                </div>
+            </div>
+
+            <div class="yui-gf top_padded">
+                <div class="yui-u first align_right">
+                    [%l('Posts Made')%]:
+                </div>
+                <div class="yui-u">
+                    [% profiled_user.post_count %]
+                </div>
+            </div>
+
+            <div class="yui-gf top_padded">
+                <div class="yui-u first align_right">
+                    [%l('Last Post')%]:
+                </div>
+                <div class="yui-u">
+                    [% IF profiled_user.last_post %]
+                    <a href="thread/view?thread=[% profiled_user.last_post.thread.id %]">[% ForumCode.escape(profiled_user.last_post.thread.subject) |truncate(55) %]</a>
+                    <br />
+                    [% nicedate(profiled_user.last_post.created) %]
+                    [% ELSE %]
+                    [%l('Never Posted')%] 
+                    [% END %]
+                </div>
+            </div>
+
+        </div>
+    </div>
+[% ELSE %]
+    <p>[%l('PROFILE NOT FOUND')%]</p>
+[% END %]
+<!-- end : user/profile -->
