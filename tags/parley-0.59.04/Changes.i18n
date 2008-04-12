@@ -1,0 +1,84 @@
+This file documents additions and changes to files and templates related to
+Parley's i18n.
+
+The inention is for 'en' to be the main/key language for the application with
+other translations being made from it.  As a consequence of this, i-default
+will be used as the 'en' i18n file.
+It's unlikely that we'll need an 'en' file in the project.
+
+0.59 (UNDER DEVELOPMENT)
+
+    i_default.po:
+        - added:
+            - "ADMIN LOCK POST"
+            - "Locked Post"
+            - "Post Edited By"
+            - "Manage"
+            - "Users"
+            - "User Roles"
+            - "We're not in Kansas any more"
+            - "Invalid %1"
+            - "Invalid requested value"
+            - "Administration"
+            - "Suspend Account"
+            - "Please enter suspension information"
+            - "Reason for suspension"
+            - "You don't have the required privileges to do that"
+            - "Suspended"
+            - "No reason given"
+            - "Logins are not permitted from %1"
+            - "Login Not Allowed"
+            - "Registrations are not permitted from %1"
+            - "Registration Not Allowed"
+            - "Posting is not permitted from %1"
+            - "Posting Not Allowed"
+            - "Access Denied"
+            - "Access to this application is not permitted from %1"
+            - "IP Bans"
+            - "IP Information"
+
+    it.po:
+        - added:
+            - "ADMIN LOCK POST"
+            - "Locked Post"
+            - "Post Edited By"
+
+    nl.po:
+        - full translation from i_default.po (v0.58)
+
+0.58
+    (en renamed to i_default)
+
+    it.po:
+        - full translation from i_default.po
+        - added:
+            - 'or'
+            - 'Cancel'
+            - 'in'
+            - 'Please choose a language' (babelfish)
+            - "%quant(%1,Forum)"
+
+    i_default.po:
+        - added:
+            - 'or'
+            - "%1 wrote:"
+            - "%quant(%1,reply)"
+            - "%quant(%1,view)"
+            - "%quant(%1,Forum)"
+            - "created by (%1)"
+            - "last post by (%1)"
+            - "Posted from %1"
+            - "Replying To"
+            - 'There is no current forum to view'
+            - 'There is no current thread to view'
+            - 'No Moderators'
+            - 'Page %1 of %2'
+            - 'Cancel'
+            - 'in'
+            - 'Please choose a language'
+
+        - removed:
+            - "Posted From"
+
+0.57
+    - initial i18n inplementation (en only)
