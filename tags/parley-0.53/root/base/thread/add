@@ -1,4 +1,9 @@
-<h1>Start A New Topic</h1>
+<div style="margin-top:10px;"></div>
+<div class="thread_header">
+    <a href="forum/view?forum=[% current_forum.id %]">[% current_forum.name %]</a>
+    &nbsp;:&nbsp;
+    [%l('Start A New Topic')%]
+</div>
 
 [% IF view.error.message %]
     [% view.error.message %]
@@ -9,24 +14,35 @@
     </ul>
 [% END %]
 
-
 <form action="thread/add?forum=[% current_forum.id %]" method="POST" name="new_thread">
+    <table class="thread_add" border="0">
+        <tr>
+            <td class="thread_add_topic"> [%l('Topic')%] </td>
+            <td>
+            <input type="text" name="thread_subject" size="60" class="input_text" />
+            </td>
+        </tr>
 
-<table>
+        <tr>
+            <td class="thread_add_message"> [%l('Message')%] </td>
+            <td>
+                <textarea name="thread_message" id="thread_message" cols="60" rows="20" class="input_text" /></textarea>
+            </td>
+        </tr>
 
-  <tr>
-    <td> Topic </td>
-    <td>
-      <input type="text" name="thread_subject" size="60" class="input_text" />
-    </td>
-  </tr>
+        <tr>
+            <td>&nbsp;</td>
+            <td colspan="1" style="text-align: left;">
+                <span class="yui-button yui-link-button" style="margin-right:50px;margin-left:50px;">
+                    <span class="first-child">
+                        <a href="[%c.uri_for('/forum/view',{'forum'=>current_forum.id})%]">[%l('Cancel')%]</a>
+                    </span>
+                </span>
 
-  <tr>
-    <td> Message </td>
-    <td>
-      <textarea name="thread_message" cols="60" rows="20" class="input_text" /></textarea>
-    </td>
-  </tr>
+                <input type="button" value="[%l('Preview')%]" name="preview_reply" class="" id="message_preview" />
+                <input type="submit" value="[%l('Post New Topic')%]" name="post_reply" class="" />
+            </td>
+        </tr>
 
   <tr>
     <td colspan="2" style="text-align: center;">
@@ -49,4 +65,15 @@
   </tr>
 </table>
 
-</form>
+<!-- message preview majick -->
+<script type="text/javascript" src="[%c.uri_for('/static/MessagePreview-min.js')%]"></script>
+<script type="text/javascript">
+    var MessagePreview = new ParleyMessagePreview();
+
+    MessagePreview.config.label_preview = '[%l('Preview')%]';
+    MessagePreview.config.label_edit    = '[%l('Edit')%]';
+    MessagePreview.config.post_url      = "[%c.uri_for('/post/preview')%]";
+
+    MessagePreview.init();
+</script>
+<!-- (end) message preview majick -->

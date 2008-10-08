@@ -1,26 +1,42 @@
 package Parley::Controller::User;
-
+# vim: ts=8 sts=4 et sw=4 sr sta
 use strict;
 use warnings;
+
+use Parley::Version;  our $VERSION = $Parley::VERSION;
 use base 'Catalyst::Controller';
+
+use JSON;
 
 # deal with user login requests on user/login
 sub login : Path('/user/login') {
     my ( $self, $c ) = @_;
 
     # default form message
-    $c->stash->{'message'} = 'Please enter your username and password';
+    $c->stash->{'message'} = $c->localize(q{PASSWORD ENTER DETAILS});
     # if we have a custom message to use ..
     $c->stash->{'login_message'} = delete( $c->session->{login_message} );
     # make sure we use the correct template - we sometimes detach() here
     $c->stash->{template} = 'user/login';
 
+
+    # deal with logins banned by IP
+    my $ip = $c->request->address;
+    my $login_banned =
+        $c->model('ParleyDB::IpBan')->is_login_banned($ip);
+    if ($login_banned) {
+        $c->stash->{template} = 'user/login_ip_banned';
+        return;
+    }
+
     # if we have a username, try to log the user in
     if ( $c->request->param('username') ) {
         # try to log the user in
-        my $login_status = $c->login(
-            $c->request->param('username'),
-            $c->request->param('password'),
+        my $login_status = $c->authenticate(
+            {
+                username => $c->request->param('username'),
+                password => $c->request->param('password'),
+            }
         );
 
         # if we have a user we're logged in
@@ -63,13 +79,19 @@ sub login : Path('/user/login') {
         # otherwise we failed to login, try again!
         else {
             $c->stash->{'message'}
-                = 'Unable to authenticate the login details supplied';
+                = $c->localize(q{AUTHENTICATION FAILED});
         }
     }
 }
 
 sub logout : Path('/user/logout') {
     my ($self, $c) = @_;
+
+#    # if no-one logged in, send them to the main page as a punishment
+#    if (not exists $c->session->{authed_user}) {
+#        $c->response->redirect( $c->uri_for($c->config()->{default_uri}) );
+#        return;
+#    }
 
     # session logout, and remove information we've stashed
     $c->logout;
@@ -126,7 +148,7 @@ Catalyst Controller.
 
 =head1 AUTHOR
 
-Chisel Wright C<< <chisel@herlpacker.co.uk> >>
+Chisel Wright C<< <chiselwright@users.berlios.de> >>
 
 =head1 LICENSE
 

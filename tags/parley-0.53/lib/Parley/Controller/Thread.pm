@@ -2,6 +2,8 @@ package Parley::Controller::Thread;
 
 use strict;
 use warnings;
+
+use Parley::Version;  our $VERSION = $Parley::VERSION;
 use base 'Catalyst::Controller';
 use Data::SpreadPagination;
 
@@ -39,10 +41,19 @@ sub add : Local {
     my ($self, $c) = @_;
 
     # make sure we're logged in
-    $c->login_if_required(q{You must be logged in before you can add a new topic.});
+    $c->login_if_required($c->localize(q{LOGIN NEW TOPIC}));
 
     # make sure we're authenticated
     # XXX
+
+    # deal with posting banned by IP
+    my $ip = $c->request->address;
+    my $posting_banned =
+        $c->model('ParleyDB::IpBan')->is_posting_banned($ip);
+    if ($posting_banned) {
+        $c->stash->{template} = 'user/posting_ip_banned';
+        return;
+    }
 
     # if we have a form POST ...
     if (defined $c->request->method() and $c->request->method() eq 'POST') {
@@ -59,7 +70,7 @@ sub next_post : Local {
     my ($self, $c) = @_;
 
     # make sure we're logged in
-    $c->login_if_required(q{You must be logged in before you can use the thread continuation function});
+    $c->login_if_required($c->localize(q{LOGIN THREAD CONTINUE}));
 
     # get the most recent post the user has seen
     my $last_viewed_post = $c->model('ParleyDB')->resultset('Thread')->last_post_viewed_in_thread(
@@ -146,7 +157,7 @@ sub reply : Local {
     my ($self, $c) = @_;
 
     # make sure we're logged in
-    $c->login_if_required(q{You must be logged in before you can add a reply.});
+    $c->login_if_required($c->localize(q{LOGIN ADD REPLY}));
 
     # make sure we're authenticated
     # XXX
@@ -173,13 +184,11 @@ sub reply : Local {
             and $c->request->method() eq 'POST'
             and defined $c->request->param('post_reply')
     ) {
-        $c->log->debug('calling: _add_new_reply($c)');
         $self->_add_new_reply($c);
     }
     # other wise we continue merrily on our way, and simply display the
     # thread/reply page
     else {
-        $c->log->debug('allowing fall-through to view in reply()');
         # thread/reply template shown automagically
     }
 }
@@ -200,12 +209,21 @@ sub view : Local {
     ##################################################
     $c->stash->{post_list} = $c->model('ParleyDB')->resultset('Post')->search(
         {
-            thread => $c->_current_thread->id(),
+            'me.thread_id' => $c->_current_thread->id(),
         },
         {
-            order_by    => 'created ASC',
+            order_by    => [\'me.created ASC'],
             rows        => $c->config->{posts_per_page},
             page        => $c->stash->{current_page},
+
+            prefetch => [
+                { thread => {'forum'=>'last_post'} },
+                { creator => 'authentication' },
+                #{ reply_to => 'creator' },
+                #{ quoted_post => 'creator' },
+                'reply_to',
+                'quoted_post',
+            ],
         }
     );
 
@@ -220,8 +238,6 @@ sub view : Local {
     # some updates for logged in users
     ##################################################
     if ($c->_authed_user) {
-        $c->log->debug('thread view by authed user');
-
         # update thread_view for user
         $self->_update_thread_view($c);
 
@@ -237,7 +253,8 @@ sub view : Local {
         $self->_thread_watch_count($c);
 
         # setup the pager
-        $self->_thread_view_pager($c);
+        #$self->_thread_view_pager($c);
+        $self->_prepare_pager($c, $c->stash->{post_list});
     }
 
     1; # return 'true'
@@ -254,20 +271,26 @@ sub watch :Local {
     }
 
     # need to be logged in to watch threads
-    $c->login_if_required($c, q{You must be logged in before you can watch a topic.});
+    $c->login_if_required($c->localize(q{LOGIN WATCH TOPIC}));
 
     # get the ThreadView so we can update it
     my $thread_view = $c->model('ParleyDB')->resultset('ThreadView')->find(
         {
-            person  => $c->_authed_user()->id(),
-            thread  => $c->_current_thread()->id(),
+            person_id  => $c->_authed_user()->id(),
+            thread_id  => $c->_current_thread()->id(),
+        },
+        {
+            prefetch => [
+                'person',
+                { 'thread' => [qw/ forum creator last_post/] },
+            ],
         }
     );
 
     # if we couldn't find a thread view, then something odd is happening -
     # logged in users should always have a thread_view entry
     if (not defined $thread_view) {
-        $c->stash->{error}{message} = q{Failed to watch requested thread};
+        $c->stash->{error}{message} = $c->localize(q{THREAD WATCH FAILED});
         $c->log->error(q{User doesn't have a thread_view entry});
         return;
     }
@@ -307,6 +330,74 @@ sub watch :Local {
     }
 }
 
+sub watches : Local {
+    my ($self, $c) = @_;
+
+    # make sure we're logged in
+    $c->login_if_required($c->localize(q{LOGIN VIEW WATCHES}));
+
+    # watched threads
+    my $watches = $c->model('ParleyDB')->resultset('ThreadView')->search(
+        {
+            person_id   => $c->_authed_user()->id(),
+            watched     => 1,
+        },
+        {
+            order_by    => [\'last_post.created DESC'],
+            join        => {
+                'thread' => 'last_post',
+            },
+
+            prefetch => [
+                { person   => 'authentication' },
+                { 'thread' => [
+                    'forum',
+                    #'creator',
+                    { creator   => 'authentication' },
+                    { 'last_post' => 'creator' },
+                  ]
+                },
+            ],
+        }
+    );
+    $c->stash->{thread_watches} = $watches;
+
+    # if we've got a list of threads to stop watching ...
+    if (my @thread_ids = $c->request->param('stop_watching')) {
+        foreach my $thread_id ( @thread_ids ) {
+            # get the ThreadView so we can update it
+            my $thread_view = $c->model('ParleyDB')->resultset('ThreadView')->find(
+                {
+                    person_id  => $c->_authed_user()->id(),
+                    thread_id  => $thread_id,
+                },
+                {
+                    prefetch => [
+                        'person',
+                        { 'thread' => [qw/ forum creator last_post/] },
+                    ],
+                }
+            );
+
+            # if we couldn't find a thread view, then something odd is happening -
+            # logged in users should always have a thread_view entry
+            if (not defined $thread_view) {
+                $c->stash->{error}{message} = $c->localize(q{THREAD WATCH FAILED});
+                $c->log->error(q{User doesn't have a thread_view entry});
+                return;
+            }
+
+            # we have a thread_view entry for the user, so update it
+
+            # update the watched status
+            $thread_view->watched( 0 );
+            $thread_view->update();
+        }
+    }
+
+    return;
+}
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Controller (Private/Helper) Methods
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -322,16 +413,18 @@ sub _add_new_reply {
 
     # deal with missing/invalid fields
     if ($c->form->has_missing()) {
-        $c->stash->{view}{error}{message} = q{You must fill in all the required fields};
+        $c->stash->{view}{error}{message} = $c->localize(q{DFV FILL REQUIRED});
         foreach my $f ( $c->form->missing ) {
             push @{ $c->stash->{view}{error}{messages} }, $f;
         }
+        return;
     }
     elsif ($c->form->has_invalid()) {
-        $c->stash->{view}{error}{message} = q{One or more fields are invalid};
+        $c->stash->{view}{error}{message} = $c->localize(q{DFV FIELDS INVALID});
         foreach my $f ( $c->form->invalid ) {
             push @{ $c->stash->{view}{error}{messages} }, $f;
         }
+        return;
     }
 
     # otherwise, the form data is ok ...
@@ -377,13 +470,13 @@ sub _add_new_thread {
 
     # deal with missing/invalid fields
     if ($c->form->has_missing()) {
-        $c->stash->{view}{error}{message} = q{You must fill in all the required fields};
+        $c->stash->{view}{error}{message} = $c->localize(q{DFV FILL REQUIRED});
         foreach my $f ( $c->form->missing ) {
             push @{ $c->stash->{view}{error}{messages} }, $f;
         }
     }
     elsif ($c->form->has_invalid()) {
-        $c->stash->{view}{error}{message} = q{One or more fields are invalid};
+        $c->stash->{view}{error}{message} = $c->localize(q{DFV FIELDS INVALID});
         foreach my $f ( $c->form->invalid ) {
             push @{ $c->stash->{view}{error}{messages} }, $f;
         }
@@ -406,16 +499,16 @@ sub _add_new_thread {
             $c->log->error( $@ );
             return;
         }
+        # set the current thread
+        $c->_current_thread( $new_thread );
+
+        # view the "next post" in the new thread
+        $c->detach('next_post');
     }
 
     # getting here means we validated the form, and added required data for the
     # new thread
 
-    # set the current thread
-    $c->_current_thread( $new_thread );
-
-    # view the "next post" in the new thread
-    $c->detach('next_post');
 }
 
 sub _get_thread_reply_post {
@@ -430,7 +523,7 @@ sub _get_thread_reply_post {
         # get the specific post we're responding to
         $posts = $c->model('ParleyDB')->resultset('Post')->search(
             {
-                post_id     => $c->_current_post()->id(),
+                'me.id'     => $c->_current_post()->id(),
             },
             {
                 rows        => 1,
@@ -441,22 +534,22 @@ sub _get_thread_reply_post {
         # get the first post in the thread
         $posts = $c->model('ParleyDB')->resultset('Post')->search(
             {
-                thread      => $c->_current_thread()->id(),
+                'thread_id' => $c->_current_thread()->id(),
             },
             {
-                order_by    => 'created ASC',
+                order_by    => [\'created ASC'],
                 rows        => 1,
             }
         );
     }
     else {
-        $c->stash->{error}{message} = q{No information for thread or post to reply to};
+        $c->stash->{error}{message} = $c->localize(q{THREAD NO INFORMATION});
         return;
     }
 
     # if we don't have one post, something really odd happened
     if (1 != $posts->count()) {
-        $c->stash->{error}{message} = q{I don't know how you managed to reply to a thread with no posts};
+        $c->stash->{error}{message} = $c->localize(q{THREAD NO POSTS});
         return;
     }
 
@@ -512,7 +605,6 @@ sub _increase_thread_view_count {
     eval {
         $c->model('ParleyDB')->schema->txn_do(
             sub {
-                $c->log->info( q{Increasing view count} );
                 $c->_current_thread->view_count(
                     $c->_current_thread->view_count + 1
                 );
@@ -531,23 +623,22 @@ sub _increase_thread_view_count {
     }
 }
 
-sub _thread_view_pager {
-    my ($self, $c) = @_;
+sub _prepare_pager {
+    my ($self, $c, $list) = @_;
 
-    $c->stash->{page} = $c->stash->{post_list}->pager();
+    $c->stash->{page} = $list->pager();
 
-    # TODO - find a better way to do this if possible
-    # set up Data::SpreadPagination
     my $pagination = Data::SpreadPagination->new(
         {
             totalEntries        => $c->stash->{page}->total_entries(),
-            entriesPerPage      => $c->config->{posts_per_page},
-            currentPage         => $c->stash->{current_page},
+            entriesPerPage      => $c->stash->{page}->entries_per_page(),
+            currentPage         => $c->stash->{page}->current_page(),
             maxPages            => 4,
         }
     );
     $c->stash->{page_range_spread} = $pagination->pages_in_spread();
 }
+
 
 sub _thread_watch_count {
     my ($self, $c) = @_;
@@ -556,8 +647,8 @@ sub _thread_watch_count {
     $c->stash->{watcher_count} =
         $c->model('ParleyDB')->resultset('ThreadView')->count(
             {
-                thread  => $c->_current_thread()->id(),
-                watched => 1,
+                'thread_id' => $c->_current_thread()->id(),
+                watched     => 1,
             }
         )
     ;
@@ -577,8 +668,8 @@ sub _update_last_post {
                 my $forum = $thread->forum;
 
                 # set the last_post for both forum and thread
-                $forum-> last_post($new_post->post_id());
-                $thread->last_post($new_post->post_id());
+                $forum-> last_post_id($new_post->id());
+                $thread->last_post_id($new_post->id());
                 $forum ->update();
                 $thread->update();
             }
@@ -604,7 +695,7 @@ sub _update_person_post_info {
         # increase the post count for the user
         $person->post_count( $person->post_count() + 1 );
         # make a note of their last post
-        $person->last_post( $post->id() );
+        $person->last_post_id( $post->id() );
         # push the changes back tot the db
         $person->update();
     };
@@ -632,23 +723,27 @@ sub _update_thread_view {
 
     # get the timestamp of the last post
     $last_post_timestamp = $last_post->created();
-    $c->log->debug( qq{\$last_post_timestamp = $last_post_timestamp} );
 
     # make a note of when the user last viewed this thread, if a record doesn't already exist
     my $thread_view =
         $c->model('ParleyDB')->resultset('ThreadView')->find_or_create(
             {
-                person      => $c->_authed_user()->id(),
-                thread      => $c->_current_thread()->id(),
+                person_id   => $c->_authed_user()->id(),
+                thread_id   => $c->_current_thread()->id(),
                 timestamp   => $last_post_timestamp,
             },
+            {
+                prefetch => [
+                    'person',
+                    { 'thread' => [qw/ forum creator last_post/] },
+                ],
+            }
         )
     ;
 
     # set the timestamp the time of the last post on the page (unless the
     # existing time is later)
     if ($thread_view->timestamp() < $last_post_timestamp) {
-        $c->log->debug('thread view time is less than last_post time');
         $thread_view->timestamp( $last_post_timestamp );
     }
 
@@ -686,10 +781,11 @@ sub _txn_add_new_reply {
     # create a new post in the current thread
     $new_post = $c->model('ParleyDB')->resultset('Post')->create(
         {
-            thread      => $c->_current_thread()->id(),
+            'thread_id' => $c->_current_thread()->id(),
             subject     => $c->form->valid->{thread_subject},
             message     => $c->form->valid->{thread_message},
-            creator     => $c->_authed_user->id(),
+            creator_id  => $c->_authed_user->id(),
+            ip_addr     => $c->request->address(),
             ip_addr     => $c->request->address(),
         }
     );
@@ -698,19 +794,19 @@ sub _txn_add_new_reply {
     # post (i.e. quoted reply, not just reply-to-thread)
     if (defined $c->_current_post()) {
         # mark what the new post is in reply-to
-        $new_post->reply_to( $c->_current_post()->id() );
+        $new_post->reply_to_id( $c->_current_post()->id() );
     }
 
     # do we have a quoted post? if we do we need to store the
     # (potentially ammended) quoted text, and the actual post being
     # quoted (so we can get author, date, etc)
     if (defined $c->request->param('have_quoted_post')) {
-        $new_post->quoted_post( $c->_current_post()->id() );
-        $new_post->quoted_text( $c->req->param('quote_message') );
+        $new_post->quoted_post_id( $c->_current_post()->id() );
+        $new_post->quoted_text   ( $c->req->param('quote_message') );
     }
 
     # the thread's last post is the one we just created
-    $c->_current_thread()->last_post( $new_post->id );
+    $c->_current_thread()->last_post_id( $new_post->id );
 
     # we've got one post in our new thread
     $self->_increase_post_count($c, $c->_current_thread());
@@ -756,31 +852,31 @@ sub _txn_add_new_reply {
 
 sub _txn_add_new_thread {
     my ($self, $c) = @_;
-    $c->log->info( q{_txn_add_new_thread} );
     
     my ($new_thread, $new_post);
 
     # create a new thread
     $new_thread = $c->model('ParleyDB')->resultset('Thread')->create(
         {
-            forum       => $c->_current_forum->id(),
+            forum_id    => $c->_current_forum->id(),
             subject     => $c->form->valid->{thread_subject},
-            creator     => $c->_authed_user->id(),
+            creator_id  => $c->_authed_user->id(),
         }
     );
 
     # create a new post in the new thread
     $new_post = $c->model('ParleyDB')->resultset('Post')->create(
         {
-            thread      => $new_thread->id(),
+            thread_id   => $new_thread->id(),
             subject     => $c->form->valid->{thread_subject},
             message     => $c->form->valid->{thread_message},
-            creator     => $c->_authed_user->id(),
+            creator_id  => $c->_authed_user->id(),
+            ip_addr     => $c->request->address(),
         }
     );
 
     # the thread's last post is the one we just created
-    $new_thread->last_post( $new_post->id );
+    $new_thread->last_post_id( $new_post->id );
 
     # we've got one post in our new thread
     $new_thread->post_count( 1 );

@@ -8,8 +8,5 @@
 		http://dojotoolkit.org/community/licensing.shtml
 */
 
-
-
 dojo.provide("dojo.validate");
 dojo.require("dojo.validate.common");
-

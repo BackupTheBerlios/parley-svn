@@ -11,7 +11,7 @@ use lib "$FindBin::Bin/../lib";
 use Parley;
 
 my $help = 0;
-my ( $listen, $nproc, $pidfile, $manager, $detach, $keep_stderr );
+my ( $listen, $nproc, $pidfile, $manager, $detach );
  
 GetOptions(
     'help|?'      => \$help,
@@ -20,7 +20,6 @@ GetOptions(
     'pidfile|p=s' => \$pidfile,
     'manager|M=s' => \$manager,
     'daemon|d'    => \$detach,
-    'keeperr|e'   => \$keep_stderr,
 );
 
 pod2usage(1) if $help;
@@ -31,7 +30,6 @@ Parley->run(
         pidfile => $pidfile, 
         manager => $manager,
         detach  => $detach,
-	keep_stderr => $keep_stderr,
     }
 );
 
@@ -60,8 +58,6 @@ parley_fastcgi.pl [options]
    -M -manager   specify alternate process manager
                  (FCGI::ProcManager sub-class)
                  or empty string to disable
-   -e -keeperr   send error messages to STDOUT, not
-                 to the webserver
 
 =head1 DESCRIPTION
 

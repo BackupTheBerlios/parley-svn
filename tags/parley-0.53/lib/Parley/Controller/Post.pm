@@ -2,6 +2,8 @@ package Parley::Controller::Post;
 
 use strict;
 use warnings;
+
+use Parley::Version;  our $VERSION = $Parley::VERSION;
 use base 'Catalyst::Controller';
 use DateTime;
 
@@ -93,7 +95,7 @@ sub view : Local {
 
     # if we don't have a post param, then return with an error
     unless (defined $c->_current_post) {
-        $c->stash->{error}{message} = q{Incomplete URL};
+        $c->stash->{error}{message} = $c->localize(q{Incomplete URL});
         return;
     }
 
@@ -122,6 +124,24 @@ sub view : Local {
     return;
 }
 
+sub preview : Local {
+    my ($self, $c) = @_;
+    my $tt_forum = Template::Plugin::ForumCode->new();
+    my $msg_source = $c->request->param('msg_source');
+
+    my $json = to_json(
+        {
+            'formatted' =>
+                $tt_forum->forumcode(
+                    $msg_source
+                )
+        }
+    );
+
+    $c->response->body( $json );
+    return;
+}
+
 
 1;
 __END__
@@ -144,7 +164,7 @@ View a specific post, specified by the post in $c->_current_post
 
 =head1 AUTHOR
 
-Chisel Wright C<< <chisel@herlpacker.co.uk> >>
+Chisel Wright C<< <chiselwright@users.berlios.de> >>
 
 =head1 LICENSE
 

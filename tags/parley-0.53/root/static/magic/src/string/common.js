@@ -8,56 +8,80 @@
 		http://dojotoolkit.org/community/licensing.shtml
 */
 
-
-
 dojo.provide("dojo.string.common");
-dojo.string.trim = function (str, wh) {
-	if (!str.replace) {
-		return str;
-	}
-	if (!str.length) {
-		return str;
-	}
+
+dojo.require("dojo.string");
+
+/**
+ * Trim whitespace from 'str'. If 'wh' > 0,
+ * only trim from start, if 'wh' < 0, only trim
+ * from end, otherwise trim both ends
+ */
+dojo.string.trim = function(str, wh){
+	if(!str.replace){ return str; }
+	if(!str.length){ return str; }
 	var re = (wh > 0) ? (/^\s+/) : (wh < 0) ? (/\s+$/) : (/^\s+|\s+$/g);
 	return str.replace(re, "");
-};
-dojo.string.trimStart = function (str) {
+}
+
+/**
+ * Trim whitespace at the beginning of 'str'
+ */
+dojo.string.trimStart = function(str) {
 	return dojo.string.trim(str, 1);
-};
-dojo.string.trimEnd = function (str) {
+}
+
+/**
+ * Trim whitespace at the end of 'str'
+ */
+dojo.string.trimEnd = function(str) {
 	return dojo.string.trim(str, -1);
-};
-dojo.string.repeat = function (str, count, separator) {
+}
+
+/**
+ * Return 'str' repeated 'count' times, optionally
+ * placing 'separator' between each rep
+ */
+dojo.string.repeat = function(str, count, separator) {
 	var out = "";
-	for (var i = 0; i < count; i++) {
+	for(var i = 0; i < count; i++) {
 		out += str;
-		if (separator && i < count - 1) {
+		if(separator && i < count - 1) {
 			out += separator;
 		}
 	}
 	return out;
-};
-dojo.string.pad = function (str, len, c, dir) {
+}
+
+/**
+ * Pad 'str' to guarantee that it is at least 'len' length
+ * with the character 'c' at either the start (dir=1) or
+ * end (dir=-1) of the string
+ */
+dojo.string.pad = function(str, len/*=2*/, c/*='0'*/, dir/*=1*/) {
 	var out = String(str);
-	if (!c) {
-		c = "0";
+	if(!c) {
+		c = '0';
 	}
-	if (!dir) {
+	if(!dir) {
 		dir = 1;
 	}
-	while (out.length < len) {
-		if (dir > 0) {
+	while(out.length < len) {
+		if(dir > 0) {
 			out = c + out;
 		} else {
 			out += c;
 		}
 	}
 	return out;
-};
-dojo.string.padLeft = function (str, len, c) {
-	return dojo.string.pad(str, len, c, 1);
-};
-dojo.string.padRight = function (str, len, c) {
-	return dojo.string.pad(str, len, c, -1);
-};
+}
 
+/** same as dojo.string.pad(str, len, c, 1) */
+dojo.string.padLeft = function(str, len, c) {
+	return dojo.string.pad(str, len, c, 1);
+}
+
+/** same as dojo.string.pad(str, len, c, -1) */
+dojo.string.padRight = function(str, len, c) {
+	return dojo.string.pad(str, len, c, -1);
+}

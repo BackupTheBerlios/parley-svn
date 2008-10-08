@@ -8,9 +8,11 @@
 		http://dojotoolkit.org/community/licensing.shtml
 */
 
-
-
 dojo.require("dojo.xml.Parse");
-dojo.kwCompoundRequire({common:["dojo.dom"], browser:["dojo.html.*"], dashboard:["dojo.html.*"]});
+dojo.kwCompoundRequire({
+	common:		["dojo.xml.domUtil"],
+    browser: 	["dojo.xml.htmlUtil"],
+    dashboard: 	["dojo.xml.htmlUtil"],
+    svg: 		["dojo.xml.svgUtil"]
+});
 dojo.provide("dojo.xml.*");
-

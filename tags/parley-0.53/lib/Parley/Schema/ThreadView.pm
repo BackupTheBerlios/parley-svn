@@ -5,24 +5,28 @@ package Parley::Schema::ThreadView;
 use strict;
 use warnings;
 
+use Parley::Version;  our $VERSION = $Parley::VERSION;
+
 use base 'DBIx::Class';
 use DateTime::Format::Pg;
 
-__PACKAGE__->load_components('ResultSetManager', "PK::Auto", "Core");
+use Parley::App::DateTime qw( :interval );
+
+__PACKAGE__->load_components("PK::Auto", "Core");
 __PACKAGE__->table("thread_view");
 __PACKAGE__->add_columns(
+  "id" => {
+    data_type => "integer",
+    #default_value => "nextval('thread_view_thread_view_id_seq'::regclass)",
+    is_nullable => 0,
+    size => 4,
+  },
+
   "watched" => {
     data_type => "boolean",
     default_value => "false",
     is_nullable => 0,
     size => 1,
-  },
-
-  "thread_view_id" => {
-    data_type => "integer",
-    default_value => "nextval('thread_view_thread_view_id_seq'::regclass)",
-    is_nullable => 0,
-    size => 4,
   },
 
   "last_notified" => {
@@ -32,7 +36,7 @@ __PACKAGE__->add_columns(
     size => 8,
   },
 
-  "thread" => {
+  "thread_id" => {
     data_type => "integer",
     default_value => undef,
     is_nullable => 0,
@@ -44,17 +48,27 @@ __PACKAGE__->add_columns(
     is_nullable => 0,
     size => 8,
   },
-  "person" => {
+  "person_id" => {
     data_type => "integer",
     default_value => undef,
     is_nullable => 0,
     size => 4
   },
 );
-__PACKAGE__->set_primary_key("thread_view_id");
-__PACKAGE__->add_unique_constraint("thread_view_person_key", ["person", "thread"]);
-__PACKAGE__->belongs_to("thread", "Thread", { thread_id => "thread" });
-__PACKAGE__->belongs_to("person", "Person", { person_id => "person" });
+__PACKAGE__->set_primary_key("id");
+__PACKAGE__->resultset_class('Parley::ResultSet::ThreadView');
+__PACKAGE__->add_unique_constraint(
+    'thread_view_person_key',
+    ['person_id', 'thread_id']
+);
+__PACKAGE__->belongs_to(
+    "thread" => "Thread",
+    { 'foreign.id' => 'self.thread_id' },
+);
+__PACKAGE__->belongs_to(
+    "person" => "Person",
+    { 'foreign.id' => 'self.person_id' }
+);
 
 
 
@@ -67,26 +81,15 @@ foreach my $datecol (qw/timestamp/) {
 }
 
 
-sub watching_thread : ResultSet {
-    my ($self, $thread, $person) = @_;
 
-    if (not defined $thread) {
-        warn 'undefined value passed as $thread in watching_thread()';
-        return;
-    }
-    if (not defined $person) {
-        warn 'undefined value passed as $person in watching_thread()';
-        return;
-    }
+sub interval_ago {
+    my $self = shift;
+    my ($now, $duration, $longest_duration);
 
-    my $thread_view = $self->find(
-        {
-            person  => $person->id(),
-            thread  => $thread->id(),
-        }
+    my $interval_string = interval_ago_string(
+        $self->timestamp()
     );
-
-    return $thread_view->watched();
+    return $interval_string;
 }
 
 sub notification_list : ResultSet {
@@ -140,4 +143,3 @@ sub notification_list : ResultSet {
 }
 
 1;
-

@@ -31,6 +31,11 @@ sub new {
 sub forumcode {
     my ($self, $text) = @_;
 
+    # if we don't have any text, we don't have to do any work
+    if (not defined $text) {
+        return q{};
+    }
+
     # first of all ESCAPE EVERYTHING!
     $text = Template::Plugin::HTML->escape($text);
 
@@ -43,6 +48,8 @@ sub forumcode {
     $self->_lists           ( \$text );
     $self->_url_links       ( \$text );
     $self->_images          ( \$text );
+    $self->_styled_block    ( \$text );
+    $self->_quoted_block    ( \$text );
     
     return $text;
 }
@@ -103,6 +110,15 @@ sub _url_links {
         \[/url\]        # close the URL tag
     }
     {<a href="$2">$1</a>}xmsg;
+    # bbcode / explosm style urls
+    $$textref =~ s{
+        \[URL=&quot;    # opening url tag
+        (.+?)           # the url
+        &quot;\]        # close-opening tag
+        (.+?)           # link name/text/label
+        \[/URL]         # closing tag
+    }
+    {<a href="$1">$2</a>}ximsg;
 }
 
 sub _images {
@@ -116,7 +132,8 @@ sub _images {
         (.+?)
         \[/img\]
     }
-    {<img src="$2"$1 />}xmsg;
+    {<img src="$2"$1 />}ximsg;
+    # bbcode / explosm style images
 }
 
 sub _colouring {
@@ -197,6 +214,37 @@ sub _list_elements {
     return $text;
 }
 
+sub _styled_block {
+    my ($self, $textref) = @_;
+
+    $$textref =~ s{
+        \[(code|pre|quote)\]
+        (.+?)
+        \[/\1\]
+    }
+    {<div class="forumcode_$1">$2</div>}xmsg;
+}
+
+# this deals with the extended case of [quote] where we have the quoting=
+# attribute
+sub _quoted_block {
+    my ($self, $textref) = @_;
+
+    $$textref =~ s{
+        \[
+            (quote)
+            \s+
+            quoting=
+            &quot;
+            (.+?)
+            &quot;
+        \]
+        (.+?)
+        \[/\1\]
+    }
+    {<div class="forumcode_$1"><div class="forumcode_quoting">Quoting $2:</div>$3</div>}xmsg;
+}
+
 1;
 __END__
 vim: ts=8 sts=4 et sw=4 sr sta
@@ -209,12 +257,21 @@ Template::Plugin::ForumCode - class for "ForumCode" filter
 
 =head1 SYNOPSIS
 
+Standard usage in a Template Toolkit file:
+
   # load the TT module
   [% USE ForumCode %]
 
   # ForumCodify some text
   [% ForumCode.forumcode('[b]bold[/u] [u]underlined[/u] [i]italic[/i]') %]
   [% ForumCode.forumcode('**bold** __underlined__') %]
+
+Usage in a perl module:
+
+  use Template::Plugin::ForumCode;
+
+  my $tt_forum  = Template::Plugin::ForumCode->new();
+  my $formatted = $tt_forum->forumcode($text);
 
 =head1 DESCRIPTION
 

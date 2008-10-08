@@ -8,8 +8,9 @@
 		http://dojotoolkit.org/community/licensing.shtml
 */
 
-
-
-dojo.kwCompoundRequire({common:["dojo.event.common", "dojo.event.topic"], browser:["dojo.event.browser"], dashboard:["dojo.event.browser"]});
+dojo.kwCompoundRequire({
+	common: ["dojo.event", "dojo.event.topic"],
+	browser: ["dojo.event.browser"],
+	dashboard: ["dojo.event.browser"]
+});
 dojo.provide("dojo.event.*");
-

@@ -6,60 +6,75 @@ use strict;
 use warnings;
 use Data::Dump qw(pp);
 
+use Parley::Version;  our $VERSION = $Parley::VERSION;
+
+use DateTime;
 use DateTime::Format::Pg;
 use Text::Context::EitherSide;
 use Text::Search::SQL;
 
+use Parley::App::DateTime qw( :interval );
+
 use base 'DBIx::Class';
 
-__PACKAGE__->load_components("ResultSetManager", "PK::Auto", "Core");
+__PACKAGE__->load_components("PK::Auto", "Core");
 __PACKAGE__->table("post");
 __PACKAGE__->add_columns(
-  "creator",
-  { data_type => "integer", default_value => undef, is_nullable => 0, size => 4 },
-  "subject",
-  {
+  "id" => {
+    data_type => "integer",
+    #default_value => "nextval('post_post_id_seq'::regclass)",
+    is_nullable => 0,
+    size => 4,
+  },
+  "creator_id" => {
+    data_type => "integer",
+    default_value => undef,
+    is_nullable => 0,
+    size => 4
+  },
+  "subject" => {
     data_type => "text",
     default_value => undef,
     is_nullable => 1,
     size => undef,
   },
-  "quoted_post",
-  { data_type => "integer", default_value => undef, is_nullable => 1, size => 4 },
-  "message",
-  {
+  "quoted_post_id" => {
+    data_type => "integer",
+    default_value => undef,
+    is_nullable => 1,
+    size => 4
+  },
+  "message" => {
     data_type => "text",
     default_value => undef,
     is_nullable => 0,
     size => undef,
   },
-  "quoted_text",
-  {
+  "quoted_text" => {
     data_type => "text",
     default_value => undef,
     is_nullable => 1,
     size => undef,
   },
-  "created",
-  {
+  "created" => {
     data_type => "timestamp with time zone",
     default_value => "now()",
     is_nullable => 1,
     size => 8,
   },
-  "thread",
-  { data_type => "integer", default_value => undef, is_nullable => 0, size => 4 },
-  "reply_to",
-  { data_type => "integer", default_value => undef, is_nullable => 1, size => 4 },
-  "post_id",
-  {
+  "thread_id" => {
     data_type => "integer",
-    default_value => "nextval('post_post_id_seq'::regclass)",
+    default_value => undef,
     is_nullable => 0,
-    size => 4,
+    size => 4
   },
-  "edited",
-  {
+  "reply_to_id" => {
+    data_type => "integer",
+    default_value => undef,
+    is_nullable => 1,
+    size => 4
+  },
+  "edited" => {
     data_type => "timestamp with time zone",
     default_value => undef,
     is_nullable => 1,
@@ -73,24 +88,53 @@ __PACKAGE__->add_columns(
     size => 8,
   },
 );
-__PACKAGE__->set_primary_key("post_id");
-__PACKAGE__->has_many("threads", "Thread", { "foreign.last_post" => "self.post_id" });
-__PACKAGE__->has_many("forums", "Forum", { "foreign.last_post" => "self.post_id" });
-__PACKAGE__->belongs_to("creator", "Person", { person_id => "creator" });
-__PACKAGE__->belongs_to("reply_to", "Post", { post_id => "reply_to" });
+
+__PACKAGE__->set_primary_key("id");
+__PACKAGE__->resultset_class('Parley::ResultSet::Post');
+
 __PACKAGE__->has_many(
-  "post_reply_toes",
-  "Post",
-  { "foreign.reply_to" => "self.post_id" },
+    "threads" => "Thread",
+    { "foreign.last_post_id" => "self.id" }
 );
-__PACKAGE__->belongs_to("thread", "Thread", { thread_id => "thread" });
-__PACKAGE__->belongs_to("quoted_post", "Post", { post_id => "quoted_post" });
 __PACKAGE__->has_many(
-  "post_quoted_posts",
-  "Post",
-  { "foreign.quoted_post" => "self.post_id" },
+    "forums" => "Forum",
+    { "foreign.last_post_id" => "self.id" }
 );
-__PACKAGE__->has_many("people", "Person", { "foreign.last_post" => "self.post_id" });
+__PACKAGE__->belongs_to(
+    "creator" => "Person",
+    { 'foreign.id' => "self.creator_id" },
+    { join_type => 'left' }
+);
+__PACKAGE__->belongs_to(
+    "reply_to" => "Post",
+    { 'foreign.id' => "self.reply_to_id" },
+    { join_type => 'left' },
+);
+__PACKAGE__->has_many(
+  "post_reply_toes" => "Post",
+  { "foreign.reply_to_id" => "self.id" },
+);
+__PACKAGE__->belongs_to(
+    "thread" => "Thread",
+    { 'foreign.id' => "self.thread_id" },
+);
+__PACKAGE__->belongs_to(
+    "quoted_post" => "Post",
+    { 'foreign.id' => "self.quoted_post_id" },
+    { join_type => 'left' },
+);
+__PACKAGE__->has_many(
+  "post_quoted_posts" => "Post",
+  { "foreign.quoted_post" => "self.id" },
+);
+__PACKAGE__->has_many(
+    "people" => "Person",
+    { "foreign.last_post" => "self.id" },
+);
+__PACKAGE__->belongs_to(
+    "admin_editor" => "Person",
+    { 'foreign.id' => "self.admin_editor_id" },
+);
 
 
 
@@ -106,8 +150,11 @@ foreach my $datecol (qw/created edited/) {
 
 # we used to use ->slice() but it sopped working on page #2 (!!)
 # this may be slower [not benchmarked] but it works
-sub last_post_in_list : ResultSet {
-    my ($self, $post_list) = @_;
+# accessor to use in search results to return context matches
+sub match_context {
+    my $self = shift;
+    my $search_terms = shift;
+    my ($tss, $terms);
     my ($current_post);
 
     while (my $tmp = $post_list->next()) {
@@ -131,53 +178,26 @@ sub next_post :ResultSet {
     # if for some reason there are no matches, just return the post we were passed
     $next_post = $self->search(
         {
-            created => { '>' => DateTime::Format::Pg->format_datetime($post->created()) },
-            thread  => $post->thread()->id(),
-        },
-        {
-            rows    => 1,
+            search_term     => $search_terms,
         }
     );
+    $tss->parse();
+    $terms = $tss->get_chunks();
+    warn pp($terms);
+    warn pp($self->message());
 
-    if (defined $next_post->first()) {
-        return $next_post->first();
-    }
-
-    return $post;
+    my $context = Text::Context::EitherSide->new( $self->message(), context => 3 );
+    return $context->as_string( @{ $terms } );
 }
 
+sub interval_ago {
+    my $self = shift;
+    my ($now, $duration, $longest_duration);
 
-sub page_containing_post : ResultSet {
-    my ($self, $post, $posts_per_page) = @_;
-
-    my $position_in_thread = $self->thread_position($post);
-
-    # work out what page the Nth post is on
-    my $page_number = int(($position_in_thread - 1) / $posts_per_page) + 1;
-
-    return $page_number;
-}
-
-
-sub thread_position : ResultSet {
-    my ($self, $post) = @_;
-
-    if (not defined $post) {
-        warn('$post id undefined in call to Parley::Model::ParleyDB::Post->thread_position()');
-        return;
-    }
-
-    # explicitly 'deflate' the creation time, as DBIx::Class (<=v0.06003) doesn't deflate on search()
-    my $position = $self->count(
-        {
-            thread  => $post->thread()->id(),
-            created => {
-                '<='   => DateTime::Format::Pg->format_datetime($post->created())
-            },
-        }
+    my $interval_string = interval_ago_string(
+        $self->created()
     );
-
-    return $position;
+    return $interval_string;
 }
 
 # accessor to use in search results to return context matches
@@ -207,4 +227,3 @@ sub match_context {
 1;
 __END__
 vim: ts=8 sts=4 et sw=4 sr sta
-

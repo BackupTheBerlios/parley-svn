@@ -8,15 +8,14 @@
 		http://dojotoolkit.org/community/licensing.shtml
 */
 
-
-
 dojo.provide("dojo.experimental");
-dojo.experimental = function (moduleName, extra) {
-	var message = "EXPERIMENTAL: " + moduleName;
-	message += " -- Not yet ready for use.  APIs subject to change without notice.";
-	if (extra) {
-		message += " " + extra;
-	}
-	dojo.debug(message);
-};
 
+/**
+ * Convenience for informing of experimental code.
+ */
+dojo.experimental = function(packageName, extra){
+	var mess = "EXPERIMENTAL: " + packageName;
+	mess += " -- Not yet ready for use.  APIs subject to change without notice.";
+	if(extra){ mess += " " + extra; }
+	dojo.debug(mess);
+}

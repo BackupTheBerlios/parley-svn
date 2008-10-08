@@ -1,6 +1,11 @@
-<!--
-<h1>Reply to: [% current_thread.subject %]</h1>
--->
+<div style="margin-top:10px;"></div>
+<div class="thread_header">
+    <a href="forum/view?forum=[% current_forum.id %]">[% ForumCode.escape(current_forum.name) %]</a>
+    &nbsp;:&nbsp;
+    [%l('Replying To')%]
+    &nbsp;:&nbsp;
+    [% ForumCode.escape(current_thread.subject) %]
+</div>
 
 [%# different action depending on whether we're adding to a thread or replying to a specific post %]
 [% IF current_post %]
@@ -10,27 +15,23 @@
 [% END %]
 
 <!-- The post we're replying to -->
-<table>
-  <tr>
-    <td class="post_subject">
-      [% responding_to_post.subject %]
-    </td>
-    <td class="post_creator">
-      [% responding_to_post.creator.forum_name %]
-    </td>
-    <td class="post_created">
-      [% nicedate(responding_to_post.created) %]
-    </td>
-  </tr>
-  
-  <tr>
-    <td colspan="3" class="reply_post_message">
-      [% FILTER html_line_break %][% HTML.escape(responding_to_post.message) %][% END %]
-    </td>
-  </tr>
-</table>
-    
-<p>Please enter your reply in the form below:</p>
+<div class="yui-gf" style="margin-top:10px;margin-bottom:10px;">
+	<div class="yui-u first">
+        <div style="text-align:right; vertical-align: top;">
+            <p class="post_creator">
+            [% responding_to_post.creator.forum_name %]
+            </p>
+            <p class="post_created">
+            [% nicedate(responding_to_post.created) %]
+            </p>
+        </div>
+	</div>
+	<div class="yui-u">
+        <div class="reply_post_message innerpost">
+            [% FILTER html_line_break %][% ForumCode.forumcode(responding_to_post.message) %][% END %]
+        </div>
+	</div>
+</div>
 
 [% IF messages %]
 <p>
@@ -42,38 +43,51 @@
 </p>
 [% END %]
 
+<p style="padding:10px;">[%l('ENTER REPLY')%]:</p>
 
-<table>
-  [% IF c.config.replies_have_own_subject %]
-  <tr>
-    <td> Topic </td>
-    <td>
-      <input type="text" name="thread_subject" size="60" class="input_text" value="[% current_thread.subject %]" />
-    </td>
-  </tr>
-  [% END %]
+<!-- replies may have their own subject line -->
+[% IF c.config.replies_have_own_subject %]
+<div class="yui-gf" style="margin-top:10px;margin-bottom:10px;">
+	<div class="yui-u first">
+        <div style="text-align:right; vertical-align: top;">
+            [%l('Topic')%]:
+        </div>
+	</div>
+	<div class="yui-u">
+        <input type="text" name="thread_subject" size="60" class="input_text" value="[% current_thread.subject %]" />
+	</div>
+</div>
+[% END %]
 
-  [% IF quote_post %]
+<!-- possibly quoting an existing post -->
+[% IF quote_post %]
   <input type="hidden" name="have_quoted_post" value="1" />
   <input type="hidden" name="__post" value="[% quote_post.id %]" />
-  <tr>
-  <td>&nbsp;</td>
-  <td>
-    <span class="post_creator">
-      [% quote_post.creator.forum_name %] said:
-    </span>
-    <br />
-    <textarea name="quote_message" cols="60" rows="10" class="quoted_reply_textarea" />[% quote_post.message %]</textarea>
-  </td>
-  </tr>
-  [% END %]
+<div class="yui-gf" style="margin-top:10px;margin-bottom:10px;">
+	<div class="yui-u first">
+        &nbsp;
+	</div>
+	<div class="yui-u">
+        <span class="post_creator">
+            [% quote_post.creator.forum_name %] [%l('said')%]:
+        </span>
+        <br />
+        <textarea name="quote_message" cols="60" rows="10" class="quoted_reply_textarea" />[% quote_post.message %]</textarea>
+	</div>
+</div>
+[% END %]
 
-  <tr>
-    <td> Message </td>
-    <td>
-      <textarea name="thread_message" cols="60" rows="20" class="input_text" /></textarea>
-    </td>
-  </tr>
+<!-- the reply area -->
+<div class="yui-gf" style="margin-top:10px;margin-bottom:10px;">
+	<div class="yui-u first">
+        <div style="text-align:right; vertical-align: top;">
+            [%l('Message')%]:
+        </div>
+	</div>
+	<div class="yui-u">
+        <textarea name="thread_message" id="thread_message" cols="60" rows="20" class="input_text" /></textarea>
+	</div>
+</div>
 
   [% IF moderator %]
   <tr>

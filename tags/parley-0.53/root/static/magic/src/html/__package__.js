@@ -8,8 +8,7 @@
 		http://dojotoolkit.org/community/licensing.shtml
 */
 
-
-
-dojo.kwCompoundRequire({common:["dojo.html.common", "dojo.html.style"]});
+dojo.kwCompoundRequire({
+	common: ["dojo.html", "dojo.html.extras", "dojo.html.shadow"]
+});
 dojo.provide("dojo.html.*");
-

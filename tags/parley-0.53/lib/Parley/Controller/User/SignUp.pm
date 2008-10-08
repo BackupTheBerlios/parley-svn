@@ -2,6 +2,8 @@ package Parley::Controller::User::SignUp;
 
 use strict;
 use warnings;
+
+use Parley::Version;  our $VERSION = $Parley::VERSION;
 use base 'Catalyst::Controller';
 
 use List::MoreUtils qw{ uniq };
@@ -11,8 +13,7 @@ use Readonly;
 use Time::Piece;
 use Time::Seconds;
 
-#use Data::FormValidator 4.02;
-#use Data::FormValidator::Constraints qw(:closures);
+use Parley::App::DFV qw( :constraints );
 
 # used by DFV
 sub _dfv_constraint_confirm_equal {
@@ -51,7 +52,7 @@ Readonly my $LIFETIME => Time::Seconds::ONE_WEEK;
 my %dfv_profile_for = (
     'signup' => {
         required => [ qw(
-                username password confirm_password email confirm_email
+                new_username new_password confirm_password email confirm_email
                 first_name last_name forum_name
         ) ],
 
@@ -96,19 +97,35 @@ my %dfv_profile_for = (
 # Controller Actions
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+sub begin :Private {
+    my ($self, $c) = @_;
+
+    # deal with logins banned by IP
+    my $ip = $c->request->address;
+    my $signup_banned =
+        $c->model('ParleyDB::IpBan')->is_signup_banned($ip);
+    if ($signup_banned) {
+        $c->stash->{template} = 'user/signup_ip_banned';
+        return;
+    }
+
+    return 1;
+}
+
 sub authenticate : Path('/user/authenticate') {
     my ($self, $c, $auth_id) = @_;
 
     # we should have an auth-id in the url
     if (not defined $auth_id) {
-        $c->stash->{error}{message} = q{Incomplete authentication URL};
+        $c->stash->{error}{message}
+            = $c->localize(q{Incomplete authentication URL});
         return;
     }
 
     # fetch the info from the database
     my $regauth = $c->model('ParleyDB')->resultset('RegistrationAuthentication')->find(
         {
-            registration_authentication_id => $auth_id,
+            id => $auth_id,
         }
     );
 
@@ -128,7 +145,7 @@ sub authenticate : Path('/user/authenticate') {
     # get the person matching the ID
     $c->stash->{signup_user} = $c->model('ParleyDB')->resultset('Person')->find(
         {
-            person_id => $regauth->recipient->person_id(),
+            id => $regauth->recipient_id,
         }
     );
 
@@ -182,16 +199,19 @@ sub _add_new_user {
     $valid_results = $c->form->valid;
 
     # is the requested username already in use?
-    if ($self->_username_exists($c, $valid_results->{username})) {
-        push @messages, q{The username you have chosen is already in use. Please try a different one.};
+    if ($self->_username_exists($c, $valid_results->{new_username})) {
+        push @messages, $c->localize(q{USERNAME IN USE});
     }
     # is the requested email address already in use?
     if ($self->_email_exists($c, $valid_results->{email})) {
-        push @messages, q{The email address you have chosen is already in use.<br />Please try a different one, or use the <a href="user/password/forgotten">Forgotten Password</a> page.};
+        push @messages, $c->localize(
+            q{EMAIL IN USE ([_1])},
+            q{user/password/forgotten}
+        );
     }
     # is the requested forum name already in use?
     if ($self->_forumname_exists($c, $valid_results->{forum_name})) {
-        push @messages, q{The forum name you have chosen is already in use. Please try a different one.};
+        push @messages, $c->localize(q{FORUMNAME IN USE});
     }
 
     # if we DON'T have any messages, then there were no errors, so we can try
@@ -229,9 +249,9 @@ sub _create_regauth {
     # create an invitation
     $invitation = $c->model('ParleyDB')->resultset('RegistrationAuthentication')->create(
         {
-            'registration_authentication_id'	=> $random,
-            'recipient'				=> $person->person_id,
-            'expires'				=> Time::Piece->new(time + $LIFETIME)->datetime,
+            'id'	    => $random,
+            'recipient_id'  => $person->id,
+            'expires'       => Time::Piece->new(time + $LIFETIME)->datetime,
         }
     );
 
@@ -276,7 +296,10 @@ sub _new_user_authentication_email {
             person      => $person,
             headers => {
                 from    => $c->application_email_address(),
-                subject => qq{Activate your @{[$c->config->{name}]} registration},
+                subject => $c->localize(
+                    q{Activate Your [_1] Registration},
+                    $c->config->{name}
+                ),
             },
             template_data => {
                 regauth => $invitation,
@@ -298,13 +321,15 @@ sub _user_signup {
 
     # deal with missing/invalid fields
     if ($c->form->has_missing()) {
-        $c->stash->{view}{error}{message} = q{You must fill in all the required fields};
+        $c->stash->{view}{error}{message}
+            = $c->localize(q{DFV FILL REQUIRED});
         foreach my $f ( $c->form->missing ) {
             push @{ $c->stash->{view}{error}{messages} }, $f;
         }
     }
     elsif ($c->form->has_invalid()) {
-        $c->stash->{view}{error}{message} = q{One or more fields are invalid};
+        $c->stash->{view}{error}{message}
+            = $c->localize(q{DFV FIELDS INVALID});
         foreach my $f ( $c->form->invalid ) {
             push @{ $c->stash->{view}{error}{messages} }, $f;
         }
@@ -346,19 +371,19 @@ sub _txn_add_new_user {
     # add authentication record
     $new_auth = $c->model('ParleyDB')->resultset('Authentication')->create(
         {
-            username => $c->form->valid->{username},
-            password => md5_hex( $c->form->valid->{password} ),
+            username => $c->form->valid->{new_username},
+            password => md5_hex( $c->form->valid->{new_password} ),
         }
     );
 
     # add new person
     $new_person = $c->model('ParleyDB')->resultset('Person')->create(
         {
-            first_name      => $valid_results->{first_name},
-            last_name       => $valid_results->{last_name},
-            forum_name      => $valid_results->{forum_name},
-            email           => $valid_results->{email},
-            authentication  => $new_auth->id(),
+            first_name          => $valid_results->{first_name},
+            last_name           => $valid_results->{last_name},
+            forum_name          => $valid_results->{forum_name},
+            email               => $valid_results->{email},
+            authentication_id   => $new_auth->id(),
         }
     );
 

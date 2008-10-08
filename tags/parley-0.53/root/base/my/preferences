@@ -1,4 +1,4 @@
-<h1>Your preferences</h1>
+<h1>[%l('Your Preferences')%]</h1>
 
 [% IF view.error.message %]
     [% view.error.message %]

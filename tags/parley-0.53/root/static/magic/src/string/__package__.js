@@ -8,8 +8,12 @@
 		http://dojotoolkit.org/community/licensing.shtml
 */
 
-
-
-dojo.kwCompoundRequire({common:["dojo.string", "dojo.string.common", "dojo.string.extras", "dojo.string.Builder"]});
+dojo.kwCompoundRequire({
+	common: [
+		"dojo.string",
+		"dojo.string.common",
+		"dojo.string.extras",
+		"dojo.string.Builder"
+	]
+});
 dojo.provide("dojo.string.*");
-

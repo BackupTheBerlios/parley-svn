@@ -1,14 +1,38 @@
 package Parley::Controller::Root;
-
+# vim: ts=8 sts=4 et sw=4 sr sta
 use strict;
 use warnings;
+
+use Parley::Version;  our $VERSION = $Parley::VERSION;
 use base 'Catalyst::Controller';
+
+use DateTime;
+use List::MoreUtils qw(uniq);
+
+use Parley::App::Terms qw( :terms );
+use Parley::App::Error qw( :methods );
 
 #
 # Sets the actions in this controller to be registered with no prefix
 # so they function identically to actions created in MyApp.pm
 #
 __PACKAGE__->config->{namespace} = '';
+
+sub begin :Private {
+    my ($self, $c) = @_;
+
+    # deal with access banned by IP
+    my $ip = $c->request->address;
+    my $access_banned =
+        $c->model('ParleyDB::IpBan')->is_access_banned($ip);
+    if ($access_banned) {
+        $c->stash->{template} = 'user/access_ip_banned';
+        return;
+    }
+
+    return 1;
+}
+
 
 # pre-populate values in the stash if we're given "appropriate" information:
 # - _authed_user
@@ -34,23 +58,50 @@ sub auto : Private {
     if ( $c->user and not defined $c->_authed_user ) {
         $c->log->info('Fetching user information for ' . $c->user->id);
 
-        # get the person info for the username
-        my $row = $c->model('ParleyDB')->resultset('Person')->find(
-            {
-                'authentication.username'   => $c->user->username(),
-            },
-            {
-                join => 'authentication',
-            },
+    ##################################################
+    # do we have a request for a chosen language?
+    ##################################################
+    if (defined $c->request->param('lang')) {
+        $c->response->cookies->{ $cookie_name } = {
+            value       => $c->request->param('lang'),
+            expires     => '+14d',
+        };
+        # redirect back to the page they were on
+        $c->response->redirect(
+            $c->request->referer()
         );
-        $c->_authed_user( $row );
-
-        #####################################################################
-        # cater for database upgrades, and make sure the user has preferences
-        #####################################################################
-        #Parley::App::Helper->user_preference_check($c);
+        return;
     }
 
+    # preserve cookies
+    if ($c->request->cookie($cookie_name)) {
+        $c->response->cookies->{ $cookie_name } = {
+            value       => $c->request->cookie($cookie_name)->value,
+            expires     => '+14d',
+        };
+
+        # push cookie saved languages onto list of i18n languages the user accepts
+        my (@languages);
+        # fetch cookie language prefs (if any)
+        push @languages,
+            split(
+                /\s+/,
+                $c->request->cookie($cookie_name)->value
+            )
+        ;
+        # get current list of accepted languages
+        push @languages, @{$c->languages};
+        # make the list have unique entries
+        @languages = uniq @languages;
+        # set new list of accepted languages
+        $c->languages(
+            \@languages
+        );
+    }
+
+    # get a list of (all/available) forums
+    $c->stash->{available_forums} =
+        $c->model('ParleyDB::Forum')->available_list();
 
     ##################################################
     # do we have a post id in the URL?
@@ -58,7 +109,9 @@ sub auto : Private {
     if (defined $c->request->param('post')) {
         # make sure the paramter looks sane
         if (not $c->request->param('post') =~ m{\A\d+\z}) {
-            $c->stash->{error}{message} = 'non-integer post id passed: ['
+            $c->stash->{error}{message} =
+                  $c->localize('non-integer post id passed')
+                . ': ['
                 . $c->request->param('post')
                 . ']';
             return;
@@ -66,10 +119,8 @@ sub auto : Private {
 
         # get the matching post
         $c->_current_post(
-            $c->model('ParleyDB')->resultset('Post')->find(
-                {
-                    post_id  => $c->request->param('post')
-                }
+            $c->model('ParleyDB::Post')->record_from_id(
+                $c->request->param('post')
             )
         );
 
@@ -89,7 +140,9 @@ sub auto : Private {
     elsif (defined $c->request->param('thread')) {
         # make sure the paramter looks sane
         if (not $c->request->param('thread') =~ m{\A\d+\z}) {
-            $c->stash->{error}{message} = 'non-integer thread id passed: ['
+            $c->stash->{error}{message} =
+                  $c->localize('non-integer thread id passed')
+                . ': ['
                 . $c->request->param('thread')
                 . ']';
             return;
@@ -97,10 +150,8 @@ sub auto : Private {
 
         # get the matching thread
         $c->_current_thread(
-            $c->model('ParleyDB')->resultset('Thread')->find(
-                {
-                    thread_id  => $c->request->param('thread'),
-                }
+            $c->model('ParleyDB::Thread')->record_from_id(
+                $c->request->param('thread')
             )
         );
 
@@ -115,7 +166,9 @@ sub auto : Private {
     elsif (defined $c->request->param('forum')) {
         # make sure the paramter looks sane
         if (not $c->request->param('forum') =~ m{\A\d+\z}) {
-            $c->stash->{error}{message} = 'non-integer forum id passed: ['
+            $c->stash->{error}{message} =
+                  $c->localize('non-integer forum id passed')
+                . ': ['
                 . $c->request->param('forum')
                 . ']';
             return;
@@ -123,10 +176,8 @@ sub auto : Private {
 
         # get the matching forum
         $c->_current_forum(
-            $c->model('ParleyDB')->resultset('Forum')->find(
-                {
-                    forum_id  => $c->request->param('forum'),
-                }
+            $c->model('ParleyDB::Forum')->record_from_id(
+                $c->request->param('forum')
             )
         );
     }
@@ -178,9 +229,13 @@ sub default : Private {
     my ( $self, $c ) = @_;
 
     $c->response->status(404);
-    $c->response->body( '404 Not Found' );
+    $c->response->body( $c->localize('404 Not Found') );
 }
 
+sub access_denied :Local {
+    my ($self, $c) = @_;
+    parley_die($c,$c->localize('Unauthorized!'));
+}
 
 # deal with the end of the phase
 sub render : ActionClass('RenderView') {
@@ -191,6 +246,11 @@ sub render : ActionClass('RenderView') {
         $c->stash->{template} = 'error/simple';
         $c->log->error( $c->stash->{error}{message} );
     }
+
+    if (has_died($c)) {
+        $c->stash->{template} = 'error/simple';
+        $c->log->error( @{ $c->stash->{view}{error}{messages} } );
+    }
 }
 
 sub end : Private {
@@ -198,7 +258,13 @@ sub end : Private {
     $c->forward('render');
 
     # fill in any forms
-    $c->fillform( );
+    $c->fillform(
+        {
+            # combine two hashrefs so we only make one method call
+            %{ $c->request->parameters || {} },
+            %{ $c->stash->{formdata}   || {} },
+        }
+    );
     $c->fillform( $c->stash->{formdata} );
 }
 
@@ -244,7 +310,7 @@ parley.yml
 
 =head1 AUTHOR
 
-Chisel Wright C<< <chisel@herlpacker.co.uk> >>
+Chisel Wright C<< <chiselwright@users.berlios.de> >>
 
 =head1 LICENSE
 

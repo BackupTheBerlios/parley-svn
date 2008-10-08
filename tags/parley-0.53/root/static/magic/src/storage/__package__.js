@@ -8,8 +8,10 @@
 		http://dojotoolkit.org/community/licensing.shtml
 */
 
-
-
-dojo.kwCompoundRequire({common:["dojo.storage"], browser:["dojo.storage.browser"]});
+dojo.kwCompoundRequire({
+	common: ["dojo.storage"],
+	browser: ["dojo.storage.browser"],
+	dashboard: ["dojo.storage.dashboard"]
+});
 dojo.provide("dojo.storage.*");
 

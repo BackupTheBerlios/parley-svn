@@ -1,4 +1,4 @@
-<h1>Forum List</h1>
+<h1>[%l('Forum List')%]</h1>
 
 <table>
     <tr>

@@ -1,7 +1,14 @@
+#!/usr/bin/env perl
+# vim: ts=8 sts=4 et sw=4 sr sta
+use strict;
+use warnings;
 use inc::Module::Install;
 
-name 'Parley';
-all_from 'lib/Parley.pm';
+name            ('Parley');
+author          ('Chisel Wright<chiselwright@users.berlios.de>');
+abstract        ('Message board / forum application');
+license         ('perl');
+version         ('1.0.2');
 
 requires 'Catalyst' => '5.7001';
 requires 'Catalyst::Action::RenderView';
@@ -39,5 +46,5 @@ requires 'YAML'; # This should reflect the config file format you've chosen
 catalyst;
 
 install_script glob('script/*.pl');
-auto_install;
+#auto_install;
 WriteAll;

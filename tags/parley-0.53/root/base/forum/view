@@ -26,22 +26,14 @@
     [%- END %]
     </td>
 
-    <td>
-    <a href="thread/view?thread=[% thread.id %]" class="topic_link">[% ForumCode.escape(thread.subject) %]</a>
-    <br />
-    <span class="forum_mini_pager">
-        [%- IF authed_user || mini_pager %]
-        [
-            [%- IF authed_user %]
-            <a href="thread/next_post?thread=[% thread.id %]">Continue</a>
-            [%- END %]
-        ]
-        [%- END %]
+<div style="float:right; font-size: 85%;">
+    <span class="yui-button yui-link-button">
+        <span class="first-child">
+            <a href="[%c.uri_for('/thread/add',{'forum'=>current_forum.id})%]">[%l('Create New Thread')%]</a>
+        </span>
     </span>
-    <span class="topic_creator">created by
-        <span class="post_creator">[% thread.creator.forum_name %]</span>
-    </span>
-    </td>
+</div>
+[% PROCESS shared/pager_advanced %]
 
     <td>
      [% nicedate(thread.last_post.created) %]
@@ -83,6 +75,8 @@
     </tr>
   [% END %]
 </table>
+
+[% PROCESS shared/pager_advanced %]
 [% ELSE %]
   No active threads in this forum
 [% END %]
